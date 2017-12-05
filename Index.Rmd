@@ -1,0 +1,133 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Melody Premaillon"
+date: "5 décembre 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(GGally)
+library(pROC)
+library(randomForest)
+dataset <- read.table("F:/mooc/Practical_machine_learning_John_Hopkins/final_writeup/pml-training.csv", header=T, sep=",")
+testing <- read.table("F:/mooc/Practical_machine_learning_John_Hopkins/final_writeup/pml-testing.csv", header=T, sep=",")
+couleurs <- c('#d7191c','#fdae61','#ffffbf','#abdda4','#2b83ba')
+```
+
+
+# Instructions
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation,what you think the expected out of sample error is, and why you made the choices you did.You will also use your prediction model to predict 20 different test cases.
+
+# Creation of a validation set and a training set
+
+The given training set was split into two parts to create a training and a validation test set.
+
+```{r}
+partition <- createDataPartition(dataset$classe, p=0.8, list=F)
+training <- dataset[partition,]
+validation <- dataset[-partition,]
+```
+
+# Variable exploration
+
+### Missing values
+The dataset has 160 variables. A first step is looking for some missing values. It appears that for 100 variables 15369 values (~98%) are missing (they are equal to NA or ""). This variables are removed from the analysis.
+
+The 7 first column were also removed because it correspond to the experimental condition: hour, number of the exercice, name of theparticipant. All of this fields correspond to experimental conditions and are biased. They do not correspond to real life conditions and cannot be used as predictors.
+
+The list of the 58 remaining variables to predict the type of exercices is given below : 
+
+```{r echo=FALSE}
+nalength <- function(col){length(which(is.na(col)==T | col==""))}
+missv <- data.frame(name=colnames(training), missval=apply(training,2,nalength))
+
+training <- training[,which(missv$missval == 0)]
+training <- training[,-c(1:7)]
+
+testing <- testing[,which(missv$missval == 0)]
+testing <- testing[,-c(1:7)]
+
+validation <- validation[,which(missv$missval == 0)]
+validation <- validation[,-c(1:7)]
+```
+
+
+```{r echo=FALSE}
+colnames(training[,-53])
+```
+
+### Exploratory analysis
+An exploratory analysis was performed to have an overall look over the variables. Some variable seem to have a trong influence to predict the type of exercice performed. For example the pitch_forearm variable allows to separate classe A exercice (well done) from others. The classe E exercice which correspond to throwing the hips to the front is expected to be revealed by the belt sensors, as an exemple roll_belt effectivelly shows a different behaviour for the type E exercice. With the same logic, each sensor is expected to show a different kind of behaviour.
+The density plot bellow shows the distinct behaviour of type A for rolt_belt values.
+
+```{r echo=FALSE}
+ggplot(training, aes(roll_belt, fill=classe)) + geom_density(alpha=0.5) + scale_fill_manual(values=couleurs)
+```
+
+# Machine learning algorithm
+
+A random forest analysis was performed on this dataset. This choice was made because of (i) efficiency of this algorithm; (ii) it allows to predict classes (iii) it allows continuous and categorial variables. 
+
+### Data splitting, creation of 10 folds
+
+The dataset was split into 10 folds to use cross-validation in the tranining set.
+```{r}
+set.seed(4564)
+myfolds <- createFolds(training$classe, k=10, list=F, returnTrain = F)
+```
+
+### Random forest application with default parameters, comparison to a simple tree model 
+
+```{r include=F}
+eval <- read.table("F:/mooc/Practical_machine_learning_John_Hopkins/final_writeup/eval_1tree_rfdefault.txt", sep="\t", header=T)
+```
+
+Random forest algorithm was applied and tested on each of the ten folds within the training set. The median accuracy is of 0.99554 wich is extremly precise. In comparison, the same process was applied with a single regression tree and the median accuracy was of 0.4901211
+
+```{r}
+tapply(eval$accuracy, eval$meth, median)
+```
+
+
+```{r echo=FALSE}
+ggplot(eval[11:20, ], aes(meth,accuracy)) + geom_boxplot(fill="gold", alpha=0.7) + theme_light() + xlab(NULL)
+```
+
+
+### Expected out of sample error
+
+
+As the accuracy is good on training set with random forest default parameters (ntree=500, mtry =7), the choice was made not to tune the model and evaluate it on the evaluation set to have an idea of what could be out of sample error. 
+
+```{r}
+modFitRF <- randomForest(classe~. , training)
+predRF <- predict(modFitRF, validation)
+confusionMatrix(predRF, validation$classe)$overall
+```
+
+Estimation on what could be out of sample error are really good whith an accuracy and a kappa > 0.99. The confusion matrix on validation set gives:
+
+```{r echo=FALSE}
+confusion <- as.data.frame(confusionMatrix(predRF, validation$classe)[[2]])
+  for (i in 0:4){
+    confusion$FreqPercent[(i*5+1):((i+1)*5)] <- round(confusion$Freq[(i*5+1):((i+1)*5)] / sum(confusion$Freq[(i*5+1):((i+1)*5)])  , 1)
+  }
+ggplot(confusion, aes(x=Reference, y=Prediction, fill=FreqPercent)) + geom_tile() + geom_text(aes(x=Reference, y=Prediction, label= Freq)) + theme_minimal() + scale_fill_gradient(low="lightgrey", high = "gold") + ggtitle("Confusion matrix for random forest method with default parameters")
+```
+
+
+# Application of the model to test set
+
+As the out of sample error is really good on the evaluation test, the random forest algorithm was applied to the test set wich correspond to 20 different case.
+
+```{r}
+  predfinalRF <- predict(modFitRF, testing[,-53])
+  predfinalRF <- data.frame(problem_id=testing[,53], classe_prediction = predfinalRF)
+  predfinalRF
+  table(predfinalRF$classe_prediction)
+```
+
+The final model predict that exercice is well done in seven case over 20.
