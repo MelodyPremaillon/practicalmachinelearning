@@ -11,8 +11,8 @@ library(caret)
 library(GGally)
 library(pROC)
 library(randomForest)
-dataset <- read.table("F:/mooc/Practical_machine_learning_John_Hopkins/final_writeup/pml-training.csv", header=T, sep=",")
-testing <- read.table("F:/mooc/Practical_machine_learning_John_Hopkins/final_writeup/pml-testing.csv", header=T, sep=",")
+dataset <- read.table("E:/these/mooc/Practical_machine_learning_John_Hopkins/final_writeup/pml-training.csv", header=T, sep=",")
+testing <- read.table("E:/these/mooc/Practical_machine_learning_John_Hopkins/final_writeup/pml-testing.csv", header=T, sep=",")
 couleurs <- c('#d7191c','#fdae61','#ffffbf','#abdda4','#2b83ba')
 ```
 
@@ -82,7 +82,7 @@ myfolds <- createFolds(training$classe, k=10, list=F, returnTrain = F)
 ### Random forest application with default parameters, comparison to a simple tree model 
 
 ```{r include=F}
-eval <- read.table("F:/mooc/Practical_machine_learning_John_Hopkins/final_writeup/eval_1tree_rfdefault.txt", sep="\t", header=T)
+eval <- read.table("E:/these/mooc/Practical_machine_learning_John_Hopkins/final_writeup/eval_1tree_rfdefault.txt", sep="\t", header=T)
 ```
 
 Random forest algorithm was applied and tested on each of the ten folds within the training set. The median accuracy is of 0.99554 wich is extremly precise. In comparison, the same process was applied with a single regression tree and the median accuracy was of 0.4901211
